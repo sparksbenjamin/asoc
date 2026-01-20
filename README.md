@@ -255,9 +255,9 @@ If you use ASoc in your research, please cite:
 ```bibtex
 @software{asoc2025,
   title={ASoc: AI Socket Protocol for Distributed Tensor Streaming},
-  author={ASoc Contributors},
+  author= Ben Sparks,
   year={2025},
-  url={https://github.com/yourusername/asoc-protocol}
+  url={https://github.com/sparksbenjamin/asoc/}
 }
 ```
 
