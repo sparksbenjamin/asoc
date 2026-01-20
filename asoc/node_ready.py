@@ -1,8 +1,11 @@
 import asyncio
 import uuid as uuid_module
 import time
+from typing import Optional
+import ssl
 from typing import Optional, List
 from .discovery_binary import BinaryDiscovery
+from .tls_config import setup_tls
 from .protocol_binary import (
     FRAME_HELLO, FRAME_ACCEPT, FRAME_DATA, FRAME_END,
     encode_hello, decode_hello, verify_hello,
@@ -70,13 +73,18 @@ class NodeReady:
     """
     
     def __init__(self,
-                 community: str,
-                 api_key: str,
-                 static_peers: Optional[List[str]] = None,
-                 enable_discovery: bool = None,
-                 node_id: Optional[str] = None,
-                 host: str = "0.0.0.0",
-                 port: int = 9000):
+             community: str,
+             api_key: str,
+             tls: bool = False,                              # ← ADD THIS
+             cert_file: Optional[str] = None,                # ← ADD THIS
+             key_file: Optional[str] = None,                 # ← ADD THIS
+             ca_file: Optional[str] = None,                  # ← ADD THIS
+             verify_peer: bool = False,                      # ← ADD THIS
+             static_peers: Optional[List[str]] = None,
+             enable_discovery: bool = None,
+             node_id: Optional[str] = None,
+             host: str = "0.0.0.0",
+             port: int = 9000):
         """
         Args:
             community: Cluster name
@@ -141,6 +149,18 @@ class NodeReady:
         # Server reference for shutdown
         self._server = None
         self._running = True
+        # Setup TLS if requested
+        self.ssl_context = setup_tls(
+            tls=tls,
+            cert_file=cert_file,
+            key_file=key_file,
+            ca_file=ca_file,
+            verify_peer=verify_peer,
+            is_server=True  # This node accepts connections
+        )
+        
+        if self.ssl_context:
+            print(f"🔒 TLS enabled")
     
     async def _get_next_stream_id(self) -> int:
         """Get auto-incrementing stream ID"""
@@ -178,7 +198,8 @@ class NodeReady:
             self.host,
             self.port,
             reuse_address=True,
-            reuse_port=True  # Linux only, graceful on other platforms
+            reuse_port=True,
+            ssl=self.ssl_context  # ← ADD THIS LINE
         )
         
         try:
@@ -247,7 +268,10 @@ class NodeReady:
         """Connect to specific peer"""
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
+                asyncio.open_connection(
+                    host, port,
+                    ssl=self.ssl_context  # ← ADD THIS LINE
+                ),
                 timeout=5.0
             )
             
